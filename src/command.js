@@ -23,10 +23,9 @@ const help = () => {
 const load = async () => {
   try {
     const file = await Prompts.filePath();
-    console.log(`load file ${file}`);
     const text = fs.readFileSync(file, UTF8);
     globalContext.values = JSON.parse(text);
-    console.log(`load success size: ${globalContext.values.length}`);
+    console.log(`load ${file} ${globalContext.values.length} properties`);
   } catch (err) {
     console.error("load file error:", err);
   }
@@ -35,10 +34,9 @@ const load = async () => {
 const save = async () => {
   try {
     const file = await Prompts.filePath();
-    console.log(`save file ${file}`);
     const text = JSON.stringify(globalContext.values);
     fs.writeFileSync(file, text, UTF8);
-    console.log("save success.");
+    console.log(`save ${file} success.`);
   } catch (err) {
     console.error("save to file error:", err);
   }
@@ -46,8 +44,7 @@ const save = async () => {
 
 const list = async () => {
   if (globalContext.property) {
-    const hexId = Format.textHexInt(globalContext.property.id);
-    console.log(chalk.cyan(`list ${hexId} areas`));
+    console.log(chalk.cyan(`list ${globalContext.property.id} areas`));
     const values = Object.values(globalContext.property.areas).map(
       (e) => `area: ${e.id}, name: ${e.name}`
     );
@@ -55,32 +52,26 @@ const list = async () => {
   } else {
     console.log(chalk.cyan(`list all property`));
     const values = globalContext.values.map(
-      (e) => `prop: ${Format.textHexInt(e.id)}, name: ${e.name}`
+      (e) => `prop: ${e.id}, name: ${e.name}`
     );
     console.table(values);
   }
 };
 
-const property = async (hex) => {
-  const id = Format.parseHexInt(hex);
-  const property = globalContext.values.find((e) => e.id == id);
-  if (property) {
-    globalContext.property = property;
-    globalContext.area = undefined;
+const pick = async (index) => {
+  if (globalContext.property) {
+    const property = globalContext.property;
+    const values = Object.values(property.areas || {});
+    const value = index >= 0 && index < values.length ? values[index] : null;
+    globalContext.area = value || globalContext.area;
+    console.log(chalk.cyan(`pick area ${index} ${value ? "ok" : "fail"}`));
+  } else {
+    const values = globalContext.values;
+    const value = index >= 0 && index < values.length ? values[index] : null;
+    globalContext.property = value || globalContext.property;
+    globalContext.area = value ? undefined : globalContext.area;
+    console.log(chalk.cyan(`pick property ${index} ${value ? "ok" : "fail"}`));
   }
-  const text = property ? "ok" : "fail";
-  console.log(`switch to property ${hex} ${text}`);
-};
-
-const area = async (hex) => {
-  const property = globalContext.property || {};
-  const areas = property.areas || {};
-  const area = Object.values(areas).find((e) => e.id == hex);
-  if (area) {
-    globalContext.area = area;
-  }
-  const text = area ? "ok" : "fail";
-  console.log(`switch to area ${hex} ${text}`);
 };
 
 const create = async () => {
@@ -91,8 +82,7 @@ const create = async () => {
   //check property exist
   const exist = globalContext.values.find((e) => e.id == property.id);
   if (exist != undefined) {
-    const hexId = Format.textHexInt(property.id);
-    const msg = `create property id: ${hexId} has exist.`;
+    const msg = `create property id: ${property.id} has exist.`;
     console.log(chalk.red(msg));
     return;
   }
@@ -103,7 +93,7 @@ const create = async () => {
     Types.VehiclePropertyAccess.READ,
     Types.VehiclePropertyAccess.WRITE,
   ]) {
-    if ((property.access & e) != e) continue;
+    if ((Format.parseHexInt(property.access) & e) != e) continue;
     console.log(
       chalk.cyan(`create area for access: ${Format.textHexInt(e, 2)}`)
     );
@@ -125,16 +115,14 @@ const dump = async (property = undefined, area = undefined) => {
   };
   if (packet.area) {
     console.log(chalk.green("dump area"));
-    const value = Object.assign(packet.area);
-    value.id = Format.textHexInt(value.id, 2);
-    console.table(value);
+    console.table(packet.area);
   } else if (packet.property) {
     console.log(chalk.green("dump property"));
     const value = {
-      id: Format.textHexInt(packet.property.id, 8),
-      mode: Format.textHexInt(packet.property.mode, 2),
+      id: packet.property.id,
+      mode: packet.property.mode,
       perms: packet.property.perms.join(","),
-      access: Format.textHexInt(packet.property.access, 2),
+      access: packet.property.access,
     };
     console.table(value);
   } else {
@@ -149,15 +137,15 @@ const update = async () => {
     console.log(chalk.red("update no target"));
     return;
   }
-  const cleanAreaMath = (e) => {
-    e.factor = undefined;
-    e.max = undefined;
-    e.min = undefined;
-    e.offset = undefined;
+  const deleteAreaMath = (e) => {
+    delete e.factor;
+    delete e.max;
+    delete e.min;
+    delete e.offset;
   };
   if (!area) {
     console.log(
-      chalk.cyan(`update property ${Format.textHexInt(property.id)}`)
+      chalk.cyan(`update property ${property.id}`)
     );
     await Prompts.propertyName(property);
     await Prompts.propertyId(property);
@@ -167,7 +155,7 @@ const update = async () => {
       Types.VehiclePropertyAccess.READ,
       Types.VehiclePropertyAccess.WRITE,
     ]) {
-      if ((property.access & e) != e) continue;
+      if ((Format.parseHexInt(property.access) & e) != e) continue;
       console.log(
         chalk.cyan(`update area for access: ${Format.textHexInt(e, 2)}`)
       );
@@ -177,21 +165,19 @@ const update = async () => {
       if (!area.mapping || area.mapping.length <= 0) {
         await Prompts.areaMath(area);
       } else {
-        cleanAreaMath(area);
+        deleteAreaMath(area);
       }
       dump(undefined, area);
     }
   } else {
-    console.log(chalk.cyan(`update area ${Format.textHexInt(area.id)}`));
-    const access = Object.keys(property.areas).find(
-      (key) => property.areas[key].id == area.id
-    );
-    await Prompts.areaId(property, access);
+    console.log(chalk.cyan(`update area ${area.id}`));
+    const access = Object.keys(property.areas).find(key => property.areas[key].id == area.id);
+    await Prompts.areaId(property, parseInt(access));
     await Prompts.areaConfig(area);
     if (!area.mapping || area.mapping.length <= 0) {
       await Prompts.areaMath(area);
     } else {
-      cleanAreaMath(area);
+      deleteAreaMath(area);
     }
     dump(undefined, area);
   }
@@ -203,8 +189,7 @@ const remove = async () => {
     console.log(chalk.red("no property removed."));
   } else {
     globalContext.values.splice(index, 1);
-    const id = Format.textHexInt(globalContext.property.id);
-    console.log(chalk.red(`property ${id} removed.`));
+    console.log(chalk.red(`property ${globalContext.property.id} removed.`));
     globalContext.property = undefined;
     globalContext.area = undefined;
   }
@@ -220,17 +205,16 @@ const quit = () => {
 const broken = () => globalContext.quit;
 
 const Actions = {
-  help: { action: help, text: "help, help message" },
-  create: { action: create, text: "create, create property" },
-  prop: { action: property, text: "prop hex id, switch to special property" },
-  area: { action: area, text: "area hex id, switch to special area" },
-  dump: { action: dump, text: "dump, dump current property or area" },
-  list: { action: list, text: "list, list all property or area" },
-  update: { action: update, text: "update, update current property or area" },
-  remove: { action: remove, text: "remove, delete current property" },
-  load: { action: load, text: "load, load from file" },
-  save: { action: save, text: "save, save into file" },
-  quit: { action: quit, text: "quit, exit" },
+  h: { action: help, text: "h, help message" },
+  a: { action: create, text: "a, append new property" },
+  p: { action: pick, text: "p index, pick property or area via index" },
+  v: { action: dump, text: "v, view current property or area" },
+  l: { action: list, text: "l, list property or area" },
+  u: { action: update, text: "u, update current property or area" },
+  d: { action: remove, text: "d, delete current property" },
+  o: { action: load, text: "o, open and load from file" },
+  w: { action: save, text: "w, write into file" },
+  q: { action: quit, text: "q, quit" },
 };
 
 export default {

@@ -17,6 +17,7 @@ const AREA_VALUE_MAPPING_REGEX =
 const PROPERTY_NAME_FORMAT_HINT =
   "6-24 character, number(non start with), _ combine";
 const AREA_VALUE_MAPPING_FORMAT_HINT = "0 or more hex-hex, split via ,";
+const REPEAT_SYMBOL = "-"
 
 export default {
   KEY_MASK,
@@ -27,4 +28,5 @@ export default {
   AREA_VALUE_MAPPING_REGEX,
   PROPERTY_NAME_FORMAT_HINT,
   AREA_VALUE_MAPPING_FORMAT_HINT,
+  REPEAT_SYMBOL,
 };

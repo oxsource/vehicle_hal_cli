@@ -35,6 +35,13 @@ const propertyName = async (property) => {
 
 const propertyId = async (property) => {
   assert.ok(property != undefined);
+  if (property.id) {
+    const id = Format.parseHexInt(property.id);
+    property.group = id & Types.VehiclePropertyGroup.MASK;
+    property.type = id & Types.VehiclePropertyType.MASK;
+    property.area = id & Types.VehicleArea.MASK;
+    property.index = id & Types.VehiclePropertyIndex.MASK;
+  }
   const questions = [
     {
       type: "select",
@@ -82,30 +89,33 @@ const propertyId = async (property) => {
     acc[cur] = Format.parseHexInt(answers[cur]) || 0;
     return acc;
   }, {});
-  property.id = Types.createPropertyId(
+  const id = Types.createPropertyId(
     value.group,
     value.type,
     value.area,
     value.index
   );
+  property.id = Format.textHexInt(id, 8);
 };
 
 const propertyAccess = async (property) => {
   assert.ok(property != undefined);
+  const dperms = property.perms || ['', ''];
+  dperms[1] = dperms[dperms[1] == Format.REPEAT_SYMBOL ? 0 : 1];
   const questions = [
     {
       type: "select",
       name: "write",
       message: "VehiclePropertyWritePermission",
       choices: createChoices(Perms, 2),
-      initial: property.perms | [],
+      initial: Object.keys(Perms).find(key => Perms[key] == dperms[0]) || '',
     },
     {
       type: "select",
       name: "read",
       message: "VehiclePropertyReadPermission",
       choices: createChoices(Perms, 2),
-      initial: property.perms | [],
+      initial: Object.keys(Perms).find(key => Perms[key] == dperms[1]) || '',
     },
     {
       type: "select",
@@ -116,25 +126,22 @@ const propertyAccess = async (property) => {
     },
   ];
   const answers = await prompt(questions);
-  property.mode = parseInt(answers.mode, 16);
+  property.mode = answers.mode;
   const perms = [answers.write.trim(), answers.read.trim()].map(
     (key) => Perms[key]
   );
-  if (perms[0].length > 0 && perms[0] === perms[1]) {
-    perms[1] = "-";
-  }
+  perms[1] = perms[0].length > 0 && perms[0] === perms[1] ? Format.REPEAT_SYMBOL : perms[1];
   property.perms = perms;
   //property.perms decide property.access
-  property.access = [
+  const access = [
     Types.VehiclePropertyAccess.WRITE,
     Types.VehiclePropertyAccess.READ,
-  ]
-    .map((e, index) => {
-      return perms[index].length > 0 ? e : Types.VehiclePropertyAccess.NONE;
-    })
-    .reduce((acc, cur) => {
-      return (acc |= cur);
-    });
+  ].map((e, index) => {
+    return perms[index].length > 0 ? e : Types.VehiclePropertyAccess.NONE;
+  }).reduce((acc, cur) => {
+    return (acc |= cur);
+  });
+  property.access = Format.textHexInt(access, 2);
 };
 
 /**
@@ -143,52 +150,52 @@ const propertyAccess = async (property) => {
  */
 const areaId = async (property, access = Types.VehiclePropertyAccess.READ) => {
   assert.ok(property != undefined && access != undefined);
-  assert.ok(property.id != undefined && property.id > 0, "bad property id");
+  assert.ok(property.id != undefined, "bad property id");
+  console.log('areaId debug:' + access);
   assert.ok(
-    access == Types.VehiclePropertyAccess.READ ||
-      access ||
-      Types.VehiclePropertyAccess.WRITE,
+    Array.from([Types.VehiclePropertyAccess.READ, Types.VehiclePropertyAccess.WRITE]).includes(access),
     "not support area access type"
   );
   property.areas = property.areas || {};
-
-  const type = property.id & Types.VehicleArea.MASK;
+  const type = Format.parseHexInt(property.id) & Types.VehicleArea.MASK;
   const area = property.areas[access] || {};
-  area.id = area.id || 0;
-  const areas = Types.VehicleAreaMap[type] || {};
-  if (Object.keys(areas).length == 0) {
+  const areaTypes = Types.VehicleAreaMap[type] || {};
+  if (Object.keys(areaTypes).length == 0) {
     const questions = [
       {
         type: "input",
         name: "id",
         message: "VehicleAreaGlobal(0x0001-0xFFFF)",
-        initial: Format.textHexInt(area.id || Types.VehicleAreaGlobal.INIT, 4),
+        initial: area.id || Format.textHexInt(Types.VehicleAreaGlobal.INIT, 4),
         validate: (e) => {
           return Format.HEX_INT16_REGEX.test(e) || "bad global area";
         },
       },
     ];
     const answers = await prompt(questions);
-    area.id = Types.createAreaId(Format.parseHexInt(answers.id));
+    const id = Types.createAreaId(Format.parseHexInt(answers.id));
+    area.id = Format.textHexInt(id, 2);
   } else {
     const group = Object.keys(Types.VehicleArea).find(
       (key) => Types.VehicleArea[key] == type
     );
-    const selects = Object.keys(areas)
-      .filter((key) => (areas[key] & area.id) == areas[key])
-      .map((key) => Format.textHexInt(areas[key], 8));
+    const areaId = area.id ? Format.parseHexInt(area.id) : 0;
+    const selects = Object.keys(areaTypes)
+      .filter((key) => (areaTypes[key] & areaId) == areaTypes[key])
+      .map((key) => Format.textHexInt(areaTypes[key], 8));
     const questions = [
       {
         type: "multiselect",
         name: "value",
         message: `VehicleArea for ${group}(space select, enter done)`,
-        choices: createChoices(areas, 8),
+        choices: createChoices(areaTypes, 8),
         initial: selects,
       },
     ];
     const answers = await prompt(questions);
     const values = answers.value.map((e) => Format.parseHexInt(e));
-    area.id = Types.createAreaId(...values);
+    const id = Types.createAreaId(...values);
+    area.id = Format.textHexInt(id, 2);
   }
   property.areas[access] = Object.assign(area);
 };
@@ -201,7 +208,7 @@ const areaConfig = async (area) => {
       name: "domain",
       message: "CAN domain",
       choices: createChoices(Domain, 2),
-      initial: Format.textHexInt(area.domain || "", 2),
+      initial: area.domain || "",
     },
     {
       type: "input",
@@ -280,6 +287,7 @@ const areaMath = async (area) => {
       initial: area.offset || "",
     },
   ];
+  delete area.mapping;
   const answers = await prompt(questions);
   const values = Object.keys(answers).reduce((acc, cur) => {
     const text = answers[cur];
@@ -300,7 +308,7 @@ const polling = async () => {
       type: "input",
       name: "value",
       message: `input command`,
-      initial: "help",
+      initial: "h",
       choices: Object.keys(Command.Actions).map((key) => {
         return { name: key };
       }),
