@@ -5,7 +5,6 @@ import Perms from "./perms.js";
 import Format from "./format.js";
 import Domain from "./domain.js";
 import Command from "./command.js";
-import internal from "stream";
 
 const { prompt } = enquirer;
 
@@ -73,7 +72,7 @@ const propertyId = async (property) => {
         4
       ),
       validate: (e) => {
-        console.log(`validate index: ${e}`)
+        console.log(`validate index: ${e}`);
         return Format.HEX_INT16_REGEX.test(e) || "bad property index";
       },
     },
@@ -238,7 +237,9 @@ const areaConfig = async (area) => {
       initial: area.mapping || "",
       validate: (e) => {
         return (
-          e.length == 0 || Format.AREA_VALUE_MAPPING_REGEX.test(e) || "bad area mapping value"
+          e.length == 0 ||
+          Format.AREA_VALUE_MAPPING_REGEX.test(e) ||
+          "bad area mapping value"
         );
       },
     },
@@ -299,7 +300,7 @@ const polling = async () => {
       type: "input",
       name: "value",
       message: `input command`,
-      initial: 'help',
+      initial: "help",
       choices: Object.keys(Command.Actions).map((key) => {
         return { name: key };
       }),
@@ -315,15 +316,19 @@ const polling = async () => {
   return Command.broken();
 };
 
+let inputFilePath = "";
+
 const filePath = async () => {
   const questions = [
     {
       type: "input",
       name: "value",
       message: `choose file path`,
+      initial: inputFilePath || "",
     },
   ];
-  return (await prompt(questions)).value.trim();
+  inputFilePath = (await prompt(questions)).value.trim();
+  return inputFilePath;
 };
 
 export default {

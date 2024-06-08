@@ -73,12 +73,9 @@ const property = async (hex) => {
 };
 
 const area = async (hex) => {
-  const id = Format.parseHexInt(hex);
   const property = globalContext.property || {};
   const areas = property.areas || {};
-  const area = Object.keys(areas).find(
-    (key) => areas[key] && areas[key].id === id
-  );
+  const area = Object.values(areas).find((e) => e.id == hex);
   if (area) {
     globalContext.area = area;
   }
@@ -152,6 +149,12 @@ const update = async () => {
     console.log(chalk.red("update no target"));
     return;
   }
+  const cleanAreaMath = (e) => {
+    e.factor = undefined;
+    e.max = undefined;
+    e.min = undefined;
+    e.offset = undefined;
+  };
   if (!area) {
     console.log(
       chalk.cyan(`update property ${Format.textHexInt(property.id)}`)
@@ -173,6 +176,8 @@ const update = async () => {
       await Prompts.areaConfig(area);
       if (!area.mapping || area.mapping.length <= 0) {
         await Prompts.areaMath(area);
+      } else {
+        cleanAreaMath(area);
       }
       dump(undefined, area);
     }
@@ -185,6 +190,8 @@ const update = async () => {
     await Prompts.areaConfig(area);
     if (!area.mapping || area.mapping.length <= 0) {
       await Prompts.areaMath(area);
+    } else {
+      cleanAreaMath(area);
     }
     dump(undefined, area);
   }
@@ -205,6 +212,9 @@ const remove = async () => {
 
 const quit = () => {
   globalContext.quit = true;
+  globalContext.values = [];
+  globalContext.property = undefined;
+  globalContext.area = undefined;
 };
 
 const broken = () => globalContext.quit;
