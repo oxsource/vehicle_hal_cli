@@ -216,6 +216,17 @@ const createAreaId = (...areas) => {
   return areas.reduce((acc, cur) => acc | cur, 0);
 };
 
+const descVehiclePropertyAccess = access => {
+  switch(access) {
+    case VehiclePropertyAccess.READ:
+      return "GET";
+    case VehiclePropertyAccess.WRITE:
+      return "SET";
+    default:
+      return "";
+  }
+}
+
 export default {
   VehiclePropertyType,
   VehicleArea,
@@ -227,4 +238,5 @@ export default {
   VehiclePropertyAccess,
   createPropertyId,
   createAreaId,
+  descVehiclePropertyAccess,
 };

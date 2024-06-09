@@ -3,14 +3,19 @@ import fs from "fs";
 import Prompts from "./prompt.js";
 import Format from "./format.js";
 import Types from "./types.js";
+import Perms from "./perms.js";
+import Domain from "./domain.js";
 
 const UTF8 = "utf8";
+const DEFAULT_CONFIG_FILE = './config/cache.json';
 
-const globalContext = {
+const gContext = {
   values: [],
   property: undefined,
   area: undefined,
   quit: false,
+  file: undefined,
+  suggest: 'load',
 };
 
 const help = () => {
@@ -22,10 +27,14 @@ const help = () => {
 
 const load = async () => {
   try {
-    const file = await Prompts.filePath();
-    const text = fs.readFileSync(file, UTF8);
-    globalContext.values = JSON.parse(text);
-    console.log(`load ${file} ${globalContext.values.length} properties`);
+    gContext.file = await Prompts.inputFile(gContext.file || DEFAULT_CONFIG_FILE);
+    const text = fs.readFileSync(gContext.file, UTF8);
+    const context = JSON.parse(text);
+    gContext.values = context.values;
+    Array.from(context.domains).forEach(e => Domain.append(e));
+    Array.from(context.permissions).forEach(e => Perms.append(e));
+    console.log(`load ${gContext.file} ${gContext.values.length} properties`);
+    gContext.suggest = 'list';
   } catch (err) {
     console.error("load file error:", err);
   }
@@ -33,93 +42,163 @@ const load = async () => {
 
 const save = async () => {
   try {
-    const file = await Prompts.filePath();
-    const text = JSON.stringify(globalContext.values);
-    fs.writeFileSync(file, text, UTF8);
-    console.log(`save ${file} success.`);
+    gContext.file = await Prompts.inputFile(gContext.file);
+    const context = {
+      values: gContext.values,
+      file: gContext.file,
+      domains: Domain.values(),
+      permissions: Perms.values(),
+    };
+    const text = JSON.stringify(context);
+    fs.writeFileSync(gContext.file, text, UTF8);
+    console.log(`save ${gContext.file} success.`);
+    gContext.suggest = 'size';
   } catch (err) {
     console.error("save to file error:", err);
   }
 };
 
-const list = async () => {
-  if (globalContext.property) {
-    console.log(chalk.cyan(`list ${globalContext.property.id} areas`));
-    const values = Object.values(globalContext.property.areas).map(
-      (e) => `area: ${e.id}, name: ${e.name}`
-    );
-    console.table(values);
+const list = async (offset = undefined, size = undefined) => {
+  const values = [];
+  const message = [];
+  if (gContext.property) {
+    const property = gContext.property;
+    values.push(...(property.areas || []));
+    message.push(`list ${property.id} areas`);
   } else {
-    console.log(chalk.cyan(`list all property`));
-    const values = globalContext.values.map(
-      (e) => `prop: ${e.id}, name: ${e.name}`
-    );
-    console.table(values);
+    values.push(...gContext.values);
+    message.push(`list all property`);
   }
+  offset = offset || 0, size = size || values.length;
+  if (offset < 0 || size < 0) {
+    console.log(chalk.red(`list bad offset ${offset} size ${size}`));
+    return;
+  }
+  const sIndex = Math.min(offset, values.length);
+  const eIndex = Math.min(sIndex + size, values.length);
+  console.log(chalk.cyan(message.join()));
+  console.table(values.slice(sIndex, eIndex).map(e => `id: ${e.id}, name: ${e.name}`));
+  gContext.suggest = values.length > 0 ? 'select' : 'create';
 };
 
-const pick = async (index) => {
-  if (globalContext.property) {
-    const property = globalContext.property;
-    const values = Object.values(property.areas || {});
-    const value = index >= 0 && index < values.length ? values[index] : null;
-    globalContext.area = value || globalContext.area;
-    console.log(chalk.cyan(`pick area ${index} ${value ? "ok" : "fail"}`));
+const size = async () => {
+  const property = gContext.property;
+  const values = property ? property.areas : gContext.values;
+  const desc = property ? `property ${property.id} area` : 'all property';
+  console.log(chalk.cyan(`${desc} size: ${values.length}`));
+  gContext.suggest = 'list';
+};
+
+const select = async (intent) => {
+  if ('clear' == intent) {
+    gContext.property = undefined;
+    gContext.area = undefined;
+    console.log(chalk.cyan('select clear.'));
+  } else if (gContext.property) {
+    //intent as area index
+    const index = parseInt(intent) || 0;
+    const values = gContext.property.areas || [];
+    const value = index >= 0 && index < values.length && values[index];
+    gContext.area = value || gContext.area;
+    console.log(chalk.cyan(`select area index ${intent} ${value ? "ok" : "fail"}`));
   } else {
-    const values = globalContext.values;
-    const value = index >= 0 && index < values.length ? values[index] : null;
-    globalContext.property = value || globalContext.property;
-    globalContext.area = value ? undefined : globalContext.area;
-    console.log(chalk.cyan(`pick property ${index} ${value ? "ok" : "fail"}`));
+    //intent as property id
+    const value = gContext.values.find(e => e.id == intent);
+    gContext.property = value || gContext.property;
+    gContext.area = value ? undefined : gContext.area;
+    console.log(chalk.cyan(`select property id ${intent} ${value ? "ok" : "fail"}`));
   }
+  gContext.suggest = 'view';
+};
+
+const makeProperty = async (property) => {
+  const title = property.id ? 'update' : 'create';
+  console.log(chalk.cyan(`${title} property`));
+  await Prompts.propertyName(property);
+  //caculate recommand property id(last element)
+  const values = gContext.values;
+  const pid = values.length > 0 ? values[values.length - 1].id : undefined;
+  await Prompts.propertyId(property, pid);
+  //check property exist
+  if (values.find((e) => e.id == property.id)) {
+    const msg = `${title} property id ${property.id} has exist.`;
+    console.log(chalk.red(msg));
+    return false;
+  }
+  await Prompts.propertyAccess(property);
+  console.log(chalk.cyan(`${title} property success.`));
+  dump(property, undefined);
+  return true;
+};
+
+const makeArea = async (property, area) => {
+  const title = area.id ? 'update' : 'create';
+  console.log(chalk.cyan(`${title} area for property ${property.id}`));
+  //check area exist
+  property.areas = property.areas || [];
+  await Prompts.areaName(area);
+  await Prompts.areaId(property, area);
+  if (property.areas.find(el => (el[access] || {}).id == area.id)) {
+    const msg = `${title} area ${area.id} has exist.`;
+    console.log(chalk.red(msg));
+    return false;
+  }
+  const cleanAreaMath = (e) => {
+    delete e.factor;
+    delete e.max;
+    delete e.min;
+    delete e.offset;
+  };
+  //area actions(SET or GET)
+  for (const access of [Types.VehiclePropertyAccess.READ, Types.VehiclePropertyAccess.WRITE]) {
+    if ((Format.parseHexInt(property.access) & access) != access) return null;
+    const name = Types.descVehiclePropertyAccess(access);
+    console.log(chalk.cyan(`${title} ${name} action for area`));
+    const action = area[access] || {};
+    await Prompts.actionConfig(action);
+    if (!action.mapping || action.mapping.length <= 0) {
+      await Prompts.actionMath(action);
+    } else {
+      cleanAreaMath(action);
+    }
+    area[access] = action;
+  }
+  console.log(chalk.cyan(`${title} area finish.`));
+  dump(undefined, area);
+  return true;
 };
 
 const create = async () => {
-  const property = {};
-  console.log(chalk.cyan("create property"));
-  await Prompts.propertyName(property);
-  await Prompts.propertyId(property);
-  //check property exist
-  const exist = globalContext.values.find((e) => e.id == property.id);
-  if (exist != undefined) {
-    const msg = `create property id: ${property.id} has exist.`;
-    console.log(chalk.red(msg));
-    return;
+  if (!gContext.property) {
+    const property = {};
+    if (!await makeProperty(property)) return;
+    gContext.values.push(property);
+  } else {
+    const area = {};
+    if (!await makeArea(gContext.property, area)) return;
+    gContext.property.areas.push(area);
+    console.log(`gContext.property.areas size: ${gContext.property.areas.length}`);
   }
-  await Prompts.propertyAccess(property);
-  dump(property, undefined);
-  //create areas
-  for (const e of [
-    Types.VehiclePropertyAccess.READ,
-    Types.VehiclePropertyAccess.WRITE,
-  ]) {
-    if ((Format.parseHexInt(property.access) & e) != e) continue;
-    console.log(
-      chalk.cyan(`create area for access: ${Format.textHexInt(e, 2)}`)
-    );
-    await Prompts.areaId(property, e);
-    const area = property.areas[e];
-    await Prompts.areaConfig(area);
-    if (!area.mapping || area.mapping.length <= 0) {
-      await Prompts.areaMath(area);
-    }
-    dump(undefined, area);
-  }
-  globalContext.values.push(property);
+  gContext.suggest = 'save';
 };
 
 const dump = async (property = undefined, area = undefined) => {
   const packet = {
-    property: property || globalContext.property,
-    area: area || globalContext.area,
+    property: property || gContext.property,
+    area: area || gContext.area,
   };
   if (packet.area) {
     console.log(chalk.green("dump area"));
-    console.table(packet.area);
+    const values = [
+      Types.VehiclePropertyAccess.READ,
+      Types.VehiclePropertyAccess.WRITE,
+    ].map(access => packet.area[access]).filter(e => e != undefined);
+    console.table(values);
   } else if (packet.property) {
     console.log(chalk.green("dump property"));
     const value = {
       id: packet.property.id,
+      name: packet.property.name,
       mode: packet.property.mode,
       perms: packet.property.perms.join(","),
       access: packet.property.access,
@@ -128,96 +207,80 @@ const dump = async (property = undefined, area = undefined) => {
   } else {
     console.log(chalk.red("dump nothing."));
   }
+  gContext.suggest = !property && !area ? 'save' : gContext.suggest;
 };
 
 const update = async () => {
-  const property = globalContext.property;
-  const area = globalContext.area;
-  if (!property) {
+  if (!gContext.property) {
     console.log(chalk.red("update no target"));
+    gContext.suggest = 'select';
     return;
   }
-  const deleteAreaMath = (e) => {
-    delete e.factor;
-    delete e.max;
-    delete e.min;
-    delete e.offset;
-  };
-  if (!area) {
-    console.log(
-      chalk.cyan(`update property ${property.id}`)
-    );
-    await Prompts.propertyName(property);
-    await Prompts.propertyId(property);
-    await Prompts.propertyAccess(property);
-    dump(property, undefined);
-    for (const e of [
-      Types.VehiclePropertyAccess.READ,
-      Types.VehiclePropertyAccess.WRITE,
-    ]) {
-      if ((Format.parseHexInt(property.access) & e) != e) continue;
-      console.log(
-        chalk.cyan(`update area for access: ${Format.textHexInt(e, 2)}`)
-      );
-      await Prompts.areaId(property, e);
-      const area = property.areas[e];
-      await Prompts.areaConfig(area);
-      if (!area.mapping || area.mapping.length <= 0) {
-        await Prompts.areaMath(area);
-      } else {
-        deleteAreaMath(area);
-      }
-      dump(undefined, area);
-    }
+  const values = [];
+  if (!gContext.area) {
+    if (!await makeProperty(gContext.property)) return;
+    values.push(...(gContext.property.areas || []));
   } else {
-    console.log(chalk.cyan(`update area ${area.id}`));
-    const access = Object.keys(property.areas).find(key => property.areas[key].id == area.id);
-    await Prompts.areaId(property, parseInt(access));
-    await Prompts.areaConfig(area);
-    if (!area.mapping || area.mapping.length <= 0) {
-      await Prompts.areaMath(area);
-    } else {
-      deleteAreaMath(area);
-    }
-    dump(undefined, area);
+    values.push(gContext.area);
   }
+  for (const value of values) {
+    await makeArea(gContext.property, value);
+  }
+  gContext.suggest = 'save';
 };
 
 const remove = async () => {
-  const index = globalContext.values.indexOf(globalContext.property);
-  if (index < 0) {
-    console.log(chalk.red("no property removed."));
-  } else {
-    globalContext.values.splice(index, 1);
-    console.log(chalk.red(`property ${globalContext.property.id} removed.`));
-    globalContext.property = undefined;
-    globalContext.area = undefined;
+  if (!gContext.property) {
+    console.log("there is no select property");
+    gContext.suggest = 'select';
+    return;
   }
+  const property = gContext.property;
+  if (gContext.area) {
+    const index = property.areas.indexOf(gContext.area);
+    if (index >= 0) property.areas.splice(index, 1);
+    console.log(`area ${gContext.area.id} removed.`);
+    gContext.area = undefined;
+  } else {
+    const index = gContext.values.indexOf(gContext.property);
+    if (index >= 0) gContext.values.splice(index, 1);
+    console.log(chalk.red(`property ${gContext.property.id} removed.`));
+    gContext.property = undefined;
+    gContext.area = undefined;
+  }
+  gContext.suggest = 'size';
 };
 
 const quit = () => {
-  globalContext.quit = true;
-  globalContext.values = [];
-  globalContext.property = undefined;
-  globalContext.area = undefined;
+  gContext.quit = true;
+  gContext.values = [];
+  gContext.property = undefined;
+  gContext.area = undefined;
+  gContext.suggest = 'help';
 };
 
-const broken = () => globalContext.quit;
+const broken = () => gContext.quit;
+
+const suggest = () => gContext.suggest;
 
 const Actions = {
-  h: { action: help, text: "h, help message" },
-  a: { action: create, text: "a, append new property" },
-  p: { action: pick, text: "p index, pick property or area via index" },
-  v: { action: dump, text: "v, view current property or area" },
-  l: { action: list, text: "l, list property or area" },
-  u: { action: update, text: "u, update current property or area" },
-  d: { action: remove, text: "d, delete current property" },
-  o: { action: load, text: "o, open and load from file" },
-  w: { action: save, text: "w, write into file" },
-  q: { action: quit, text: "q, quit" },
+  help: { action: help, text: "help, help info;" },
+  create: { action: create, text: "create, create a property or area;" },
+  select: { action: select, text: "select, select property(id) or area(index) or clear;" },
+  view: { action: dump, text: "view, view select property or area;" },
+  list: { action: list, text: "list [offset] [size], list property or area;" },
+  size: { action: size, text: "size, size of property or areas;" },
+  update: { action: update, text: "update, update select property or area;" },
+  remove: { action: remove, text: "remove, remove select property or area;" },
+  load: { action: load, text: "load, load data from file;" },
+  save: { action: save, text: "save, save data into file;" },
+  quit: { action: quit, text: "quit, exit;" },
 };
 
 export default {
   Actions,
   broken,
+  suggest,
+  makeProperty,
+  makeArea,
 };
