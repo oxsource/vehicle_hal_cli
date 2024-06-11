@@ -161,10 +161,7 @@ const propertyAccess = async (property) => {
   //update permissions suggestions
   [answers.write, answers.read].map(e => e.trim()).forEach(e => Perms.append(e));
   //property.perms decide property.access
-  const access = [
-    Types.VehiclePropertyAccess.WRITE,
-    Types.VehiclePropertyAccess.READ,
-  ].map((e, index) => {
+  const access = Types.WRVehiclePropertyAccess.map((e, index) => {
     return property.perms[index].length > 0 ? e : Types.VehiclePropertyAccess.NONE;
   }).reduce((acc, cur) => {
     return (acc |= cur);
@@ -214,7 +211,7 @@ const areaId = async (property, area) => {
       (key) => Types.VehicleArea[key] == type
     );
     const selects = Object.keys(areaTypes)
-      .filter((key) => (areaTypes[key] & areaId) == areaTypes[key])
+      .filter((key) => (areaTypes[key] & area.id) == areaTypes[key])
       .map((key) => Format.textHexInt(areaTypes[key], 8));
     const questions = [
       {
@@ -229,6 +226,35 @@ const areaId = async (property, area) => {
     factors.push(...answers.value.map((e) => Format.parseHexInt(e)));
   }
   area.id = Format.textHexInt(Types.createAreaId(...factors), 2);
+};
+
+const areaConfig = async (area) => {
+  assert.ok(area != undefined, "bad area");
+  const validate = (e) => {
+    return e && e.trim().length == 0 || Format.FLOAT_NUMBER_REGEX.test(e) || 'bad number format.';
+  };
+  const questions = [
+    {
+      type: "input",
+      name: "max",
+      message: "area hal value max(option)",
+      initial: Format.nonNull(area.max, ' '),
+      validate,
+    },
+    {
+      type: "input",
+      name: "min",
+      message: "area hal value min(option)",
+      initial: Format.nonNull(area.min, ' '),
+      validate,
+    },
+  ];
+  const answers = await enquirer.prompt(questions);
+  ['max', 'min'].forEach(key => {
+    const text = (answers[key] || '').trim();
+    if (text.length == 0) return;
+    area[key] = parseFloat(text);
+  });
 };
 
 const actionConfig = async (action) => {
@@ -259,7 +285,7 @@ const actionConfig = async (action) => {
       type: "number",
       name: "pos",
       message: "action signal start pos(0,63)",
-      initial: action.pos || 0,
+      initial: Format.nonNull(action.pos, 0),
       validate: (e) => {
         return (e >= 0 && e < Format.CAN_SIGNAL_MAX_BIT) || "bad action pos value";
       },
@@ -268,7 +294,7 @@ const actionConfig = async (action) => {
       type: "number",
       name: "size",
       message: "action signal data size(1,63)",
-      initial: action.size || 1,
+      initial: Format.nonNull(action.size, 1),
       validate: (e) => {
         return (e > 0 && e < Format.CAN_SIGNAL_MAX_BIT) || "bad action size value";
       },
@@ -277,7 +303,7 @@ const actionConfig = async (action) => {
       type: "input",
       name: "mapping",
       message: `action signal mapping(option, ${Format.AREA_VALUE_MAPPING_FORMAT_HINT})`,
-      initial: action.mapping || "",
+      initial: Format.nonNull(action.mapping, ' '),
       validate: (e) => {
         return (
           e.trim().length == 0 ||
@@ -307,28 +333,28 @@ const actionMath = async (action) => {
       type: "input",
       name: "factor",
       message: "action signal factor(option)",
-      initial: action.factor || ' ',
+      initial: Format.nonNull(action.factor, ' '),
       validate,
     },
     {
       type: "input",
       name: "max",
       message: "action signal max(option)",
-      initial: action.max || ' ',
+      initial: Format.nonNull(action.max, ' '),
       validate,
     },
     {
       type: "input",
       name: "min",
       message: "action signal min(option)",
-      initial: action.min || ' ',
+      initial: Format.nonNull(action.min, ' '),
       validate,
     },
     {
       type: "input",
       name: "offset",
       message: "action signal offset(option)",
-      initial: action.offset || ' ',
+      initial: Format.nonNull(action.offset, ' '),
       validate,
     },
   ];
@@ -338,7 +364,7 @@ const actionMath = async (action) => {
     const text = (answers[key] || '').trim();
     if (text.length == 0) return;
     action[key] = parseFloat(text);
-  })
+  });
 };
 
 const polling = async () => {
@@ -362,12 +388,12 @@ const polling = async () => {
   return Command.broken();
 };
 
-const inputFile = async (recommand = '') => {
+const input = async (hints, recommand = '') => {
   const questions = [
     {
       type: "input",
       name: "value",
-      message: `input file path`,
+      message: hints || 'input args',
       initial: recommand,
     },
   ];
@@ -380,8 +406,9 @@ export default {
   propertyAccess,
   areaName,
   areaId,
+  areaConfig,
   actionConfig,
   actionMath,
   polling,
-  inputFile,
+  input,
 };

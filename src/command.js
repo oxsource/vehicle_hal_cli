@@ -6,6 +6,7 @@ import Format from "./format.js";
 import Types from "./types.js";
 import Perms from "./perms.js";
 import Domain from "./domain.js";
+import Xml from "./xml.js";
 
 const UTF8 = "utf8";
 const DEFAULT_CONFIG_FILE = './config/cache.json';
@@ -28,7 +29,7 @@ const help = () => {
 
 const load = async () => {
   try {
-    gContext.file = await Prompts.inputFile(gContext.file || DEFAULT_CONFIG_FILE);
+    gContext.file = await Prompts.input('load config file path', gContext.file || DEFAULT_CONFIG_FILE);
     const text = fs.readFileSync(gContext.file, UTF8);
     const context = JSON.parse(text);
     gContext.values = context.values;
@@ -43,7 +44,7 @@ const load = async () => {
 
 const save = async () => {
   try {
-    gContext.file = await Prompts.inputFile(gContext.file);
+    gContext.file = await Prompts.input('save config file path', gContext.file);
     const dir = path.dirname(gContext.file);
     !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
     const context = {
@@ -81,7 +82,7 @@ const list = async (offset = undefined, size = undefined) => {
   const eIndex = Math.min(sIndex + size, values.length);
   console.log(chalk.cyan(message.join()));
   const line = obj => {
-    return ['id', 'name'].map(key => obj[key] || `${key}: ${obj[key]}`)
+    return ['id', 'name'].map(key => obj[key] && `${key}: ${obj[key]}`)
       .filter(v => v != undefined)
       .join(', ');
   };
@@ -126,7 +127,8 @@ const makeProperty = async (property) => {
   const pid = values.length > 0 ? values[values.length - 1].id : undefined;
   await Prompts.propertyId(property, pid);
   //check property exist
-  if (values.find((e) => e.id == property.id)) {
+  const exist = values.find((e) => e.id == property.id);
+  if (exist && exist != property) {
     const msg = `${title} property id ${property.id} has exist.`;
     console.log(chalk.red(msg));
     return false;
@@ -144,7 +146,9 @@ const makeArea = async (property, area) => {
   property.areas = property.areas || [];
   await Prompts.areaName(area);
   await Prompts.areaId(property, area);
-  if (property.areas.find(el => el.id == area.id)) {
+  await Prompts.areaConfig(area);
+  const exist = property.areas.find(el => el.id == area.id);
+  if (exist && exist != area) {
     const msg = `${title} area ${area.id} has exist.`;
     console.log(chalk.red(msg));
     return false;
@@ -194,17 +198,14 @@ const dump = async (property = undefined, area = undefined) => {
   };
   if (packet.area) {
     console.log(chalk.green("dump area"));
-    const values = [
-      Types.VehiclePropertyAccess.READ,
-      Types.VehiclePropertyAccess.WRITE,
-    ].map(access => packet.area[access]).filter(e => e != undefined);
+    const values = Types.WRVehiclePropertyAccess.map(access => packet.area[access]).filter(e => e != undefined);
     console.table(values);
   } else if (packet.property) {
     console.log(chalk.green("dump property"));
     const value = {
       id: packet.property.id,
       mode: packet.property.mode,
-      perms: packet.property.perms.join(","),
+      perms: Perms.line(packet.property.perms),
       access: packet.property.access,
     };
     console.table(value);
@@ -255,7 +256,35 @@ const remove = async () => {
   gContext.suggest = 'size';
 };
 
-const quit = () => {
+const xml = async () => {
+  //save dir
+  const dir = await Prompts.input('save xml files dir', path.dirname(DEFAULT_CONFIG_FILE));
+  if (!dir || dir.length <= 0) return console.log(chalk.red('bad xml config save dir.'));
+  !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
+  //version
+  const version = await Prompts.input('xml config version name', '1.0.0');
+  if (!version || version.length <= 0) return console.log(chalk.red('bad xml config version.'));
+  //platform
+  const platform = await Prompts.input('xml config platform name', 'qcom');
+  if (!platform || platform.length <= 0) return console.log(chalk.red('bad xml config platform.'));
+  //context
+  const context = {
+    version,
+    platform,
+    values: gContext.values,
+  }
+  const hal = Xml.createHalProps(context);
+  const can = Xml.createCanProps(context);
+  try {
+    fs.writeFileSync(`${dir}/automotive_vehicle_hal_props.xml`, hal);
+    fs.writeFileSync(`${dir}/automotive_vehicle_can_props.xml`, can);
+    console.log(chalk.cyan(`export to xml success.`));
+  } catch (err) {
+    console.error("save xml to file error:", err);
+  }
+};
+
+const quit = async () => {
   gContext.quit = true;
   gContext.values = [];
   gContext.property = undefined;
@@ -278,6 +307,7 @@ const Actions = {
   remove: { action: remove, text: "remove, remove select property or area;" },
   load: { action: load, text: "load, load data from file;" },
   save: { action: save, text: "save, save data into file;" },
+  xml: { action: xml, text: "xml, export as hal and can props xml;" },
   quit: { action: quit, text: "quit, exit;" },
 };
 

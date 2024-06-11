@@ -24,6 +24,8 @@ const append = e => {
 
 const values = () => Array.from(sets);
 
+const line = (values) => values.join(',');
+
 const PERM_CAR_INFO = "android.car.permission.CAR_INFO";
 
 export default {
@@ -31,5 +33,6 @@ export default {
   group,
   append,
   values,
+  line,
   PERM_CAR_INFO,
 };

@@ -225,7 +225,9 @@ const descVehiclePropertyAccess = access => {
     default:
       return "";
   }
-}
+};
+
+const WRVehiclePropertyAccess = [VehiclePropertyAccess.WRITE, VehiclePropertyAccess.READ];
 
 export default {
   VehiclePropertyType,
@@ -239,4 +241,5 @@ export default {
   createPropertyId,
   createAreaId,
   descVehiclePropertyAccess,
+  WRVehiclePropertyAccess,
 };

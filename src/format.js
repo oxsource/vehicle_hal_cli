@@ -25,11 +25,14 @@ const REPEAT_SYMBOL = "-"
 
 const CAN_SIGNAL_MAX_BIT = 64;
 
+const nonNull = (value, defaults) => value != undefined ? value : defaults;
+
 export default {
   KEY_MASK,
   textHexInt,
   parseHexInt,
   trim,
+  nonNull,
   HEX_INT16_REGEX,
   PROPERTY_NAME_REGEX,
   AREA_VALUE_MAPPING_REGEX,

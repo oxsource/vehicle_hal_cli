@@ -7,5 +7,5 @@ import Prompts from "./prompt.js";
     if (!(await Prompts.polling())) continue;
     console.log(chalk.cyan("Bye"));
     break;
-  }
+  };
 })();
