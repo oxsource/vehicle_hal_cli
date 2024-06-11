@@ -300,7 +300,7 @@ const suggest = () => gContext.suggest;
 const Actions = {
   help: { action: help, text: "help, help info;" },
   create: { action: create, text: "create, create a property or area;" },
-  select: { action: select, text: "select, select property(id) or area(index) or clear;" },
+  select: { action: select, text: "select, select property(id) or area(id) or clear;" },
   view: { action: dump, text: "view, view select property or area;" },
   list: { action: list, text: "list [offset] [size], list property or area;" },
   size: { action: size, text: "size, size of property or areas;" },
