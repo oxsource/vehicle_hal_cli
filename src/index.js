@@ -1,3 +1,6 @@
+import 'core-js/stable';
+import 'regenerator-runtime/runtime';
+
 import chalk from "chalk";
 import Prompts from "./prompt.js";
 
