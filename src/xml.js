@@ -90,8 +90,8 @@ const createCanProps = context => {
     //build CAN_PROPS
     const nProps = root.ele('CAN_PROPS');
     context.values.forEach(prop => {
-        const nProp = nProps.ele('PROP').att('id', prop.id);
         prop.areas.forEach(area => {
+            const nProp = nProps.ele('PROP').att('id', prop.id);
             nProp.att('area', area.id).att('name', area.name);
             Types.WRVehiclePropertyAccess.forEach(access => {
                 const action = area[access];
@@ -111,8 +111,8 @@ const createCanProps = context => {
                 }
                 nAction.up();
             });
+            nProp.up();
         });
-        nProp.up();
     });
     nProps.up();
     return root.end(config.format);
