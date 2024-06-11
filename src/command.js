@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import fs from "fs";
+import path from "path";
 import Prompts from "./prompt.js";
 import Format from "./format.js";
 import Types from "./types.js";
@@ -43,6 +44,8 @@ const load = async () => {
 const save = async () => {
   try {
     gContext.file = await Prompts.inputFile(gContext.file);
+    const dir = path.dirname(gContext.file);
+    !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
     const context = {
       values: gContext.values,
       file: gContext.file,
@@ -77,7 +80,12 @@ const list = async (offset = undefined, size = undefined) => {
   const sIndex = Math.min(offset, values.length);
   const eIndex = Math.min(sIndex + size, values.length);
   console.log(chalk.cyan(message.join()));
-  console.table(values.slice(sIndex, eIndex).map(e => `id: ${e.id}, name: ${e.name}`));
+  const line = obj => {
+    return ['id', 'name'].map(key => obj[key] || `${key}: ${obj[key]}`)
+      .filter(v => v != undefined)
+      .join(', ');
+  };
+  console.table(values.slice(sIndex, eIndex).map(line));
   gContext.suggest = values.length > 0 ? 'select' : 'create';
 };
 
@@ -95,10 +103,9 @@ const select = async (intent) => {
     gContext.area = undefined;
     console.log(chalk.cyan('select clear.'));
   } else if (gContext.property) {
-    //intent as area index
-    const index = parseInt(intent) || 0;
+    //intent as area id
     const values = gContext.property.areas || [];
-    const value = index >= 0 && index < values.length && values[index];
+    const value = values.find(e => e.id == intent);
     gContext.area = value || gContext.area;
     console.log(chalk.cyan(`select area index ${intent} ${value ? "ok" : "fail"}`));
   } else {
@@ -114,7 +121,6 @@ const select = async (intent) => {
 const makeProperty = async (property) => {
   const title = property.id ? 'update' : 'create';
   console.log(chalk.cyan(`${title} property`));
-  await Prompts.propertyName(property);
   //caculate recommand property id(last element)
   const values = gContext.values;
   const pid = values.length > 0 ? values[values.length - 1].id : undefined;
@@ -138,7 +144,7 @@ const makeArea = async (property, area) => {
   property.areas = property.areas || [];
   await Prompts.areaName(area);
   await Prompts.areaId(property, area);
-  if (property.areas.find(el => (el[access] || {}).id == area.id)) {
+  if (property.areas.find(el => el.id == area.id)) {
     const msg = `${title} area ${area.id} has exist.`;
     console.log(chalk.red(msg));
     return false;
@@ -177,7 +183,6 @@ const create = async () => {
     const area = {};
     if (!await makeArea(gContext.property, area)) return;
     gContext.property.areas.push(area);
-    console.log(`gContext.property.areas size: ${gContext.property.areas.length}`);
   }
   gContext.suggest = 'save';
 };
@@ -198,7 +203,6 @@ const dump = async (property = undefined, area = undefined) => {
     console.log(chalk.green("dump property"));
     const value = {
       id: packet.property.id,
-      name: packet.property.name,
       mode: packet.property.mode,
       perms: packet.property.perms.join(","),
       access: packet.property.access,

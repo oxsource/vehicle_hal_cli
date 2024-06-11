@@ -76,22 +76,6 @@ const createValueChoices = (object, ...defaults) => {
   });
 };
 
-const propertyName = async (property) => {
-  assert.ok(property != undefined);
-  const questions = [
-    {
-      type: "input",
-      name: "name",
-      message: `VehiclePropertyName(${Format.PROPERTY_NAME_FORMAT_HINT})`,
-      initial: property.name || "",
-      validate: (e) => {
-        return Format.PROPERTY_NAME_REGEX.test(e) || "bad property name";
-      },
-    },
-  ];
-  property.name = (await enquirer.prompt(questions)).name.trim();
-};
-
 const propertyId = async (property, recommand = undefined) => {
   assert.ok(property != undefined);
   const pid = Format.parseHexInt(property.id || recommand);
@@ -392,7 +376,6 @@ const inputFile = async (recommand = '') => {
 
 export default {
   setup,
-  propertyName,
   propertyId,
   propertyAccess,
   areaName,
