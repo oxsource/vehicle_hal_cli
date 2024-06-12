@@ -1,5 +1,7 @@
 import Format from "./format.js";
+
 const sets = new Set();
+const _values = [];
 
 const split = property => {
   const values = (property && property.perms) || ['', ''];
@@ -22,17 +24,23 @@ const append = e => {
   sets.add(value);
 }
 
-const values = () => Array.from(sets);
+const setup = values => {
+  sets.clear();
+  values && values.forEach(e => append(e));
+  _values.splice(0, _values.length, ...Array.from(sets));
+}
+
+const values = () => _values;
 
 const line = (values) => values.join(',');
 
-const PERM_CAR_INFO = "android.car.permission.CAR_INFO";
+const TEMPLATE = "android.car.permission.CAR_xxx";
 
 export default {
   split,
   group,
-  append,
+  setup,
   values,
   line,
-  PERM_CAR_INFO,
+  TEMPLATE,
 };

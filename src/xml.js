@@ -2,6 +2,7 @@ import xmlbuilder2 from "xmlbuilder2";
 import Format from "./format.js";
 import Types from "./types.js";
 import Perms from "./perms.js";
+import Domain from "./domain.js";
 
 const config = {
     meta: {
@@ -82,9 +83,12 @@ const createCanProps = context => {
         })
     });
     domains.forEach(value => {
-        domain.ele('domain')
-            .att('name', value.replaceAll('0x', ''))
-            .up();
+        const nDomain = domain.ele('domain')
+            .att('name', value.replaceAll('0x', ''));
+        const source = Domain.values().find(e => e.name == value);
+        const initial = ((source || {}).initial || '').trim();
+        initial.length > 0 && nDomain.att('initial', initial);
+        nDomain.up();
     });
     domain.up();
     //build CAN_PROPS
@@ -108,6 +112,9 @@ const createCanProps = context => {
                     ['factor', 'max', 'min', 'offset'].forEach(key => {
                         action[key] != undefined && nAction.att(key, action[key]);
                     });
+                }
+                if (action.invalid) {
+                    nAction.att('invalid', action.invalid);
                 }
                 nAction.up();
             });

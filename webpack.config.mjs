@@ -1,7 +1,6 @@
 //webpack.config.js
 import path from 'path';
 import url from 'url';
-// import webpack from 'webpack';
 
 export default {
   mode: 'production',
@@ -42,9 +41,4 @@ export default {
       path: false,
     },
   },
-  // plugins: [
-  //   new webpack.DefinePlugin({
-  //     'WEBPACK_BUNDLE': true,
-  //   }),
-  // ],
 }

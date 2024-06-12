@@ -20,7 +20,7 @@ class AdviceInput extends AutoComplete {
   async submit() {
     if (this.state.submitted) return this.base.submit.call(this);
     const { input } = this.state;
-    if (this.validate && this.validate(input) && !this.choices.find(choice => choice.message === input)) {
+    if (this.validate && this.validate(input) === true && !this.choices.find(choice => choice.message === input)) {
       // If the input is not in the choices, create a new choice
       // this.choices.push({ name: value, message: value });
       // this.select(this.choices.length - 1);
@@ -55,9 +55,10 @@ class AdviceInput extends AutoComplete {
 
 }
 
-const setup = () => {
-  enquirer.register('adviceinput', AdviceInput);
+const setup = async () => {
   console.log('Prompts setup');
+  enquirer.register('adviceinput', AdviceInput);
+  await Command.setup();
 }
 
 const createChoices = (object, length = 1) => {
@@ -112,7 +113,7 @@ const propertyId = async (property, recommand = undefined) => {
       initial: Format.textHexInt(defaults.index, 4),
       validate: (e) => {
         console.log(`validate index: ${e}`);
-        return Format.HEX_INT16_REGEX.test(e) || "bad property index";
+        return Format.HEX_INT32_REGEX.test(e) || "bad property index";
       },
     },
   ];
@@ -127,24 +128,29 @@ const propertyAccess = async (property) => {
   assert.ok(property != undefined);
   const perms = {}
   perms.defaults = Perms.split(property);
-  perms.defaults.forEach(e => Perms.append(e));
-  perms.choices = createValueChoices(Perms.values(), Perms.PERM_CAR_INFO);
+  perms.choices = createValueChoices(Perms.values());
   const questions = [
-    {
-      type: "adviceinput",
-      name: "write",
-      limit: 3,
-      message: "VehiclePropertyWritePermission",
-      choices: perms.choices,
-      initial: perms.defaults[0] || Perms.PERM_CAR_INFO,
-    },
     {
       type: "adviceinput",
       name: "read",
       limit: 3,
-      message: "VehiclePropertyReadPermission",
+      message: `VehiclePropertyReadPermission(${Perms.TEMPLATE})`,
       choices: perms.choices,
-      initial: perms.defaults[1] || Perms.PERM_CAR_INFO,
+      initial: Format.nonNull(perms.defaults[0], ''),
+      validate: (e) => {
+        return Perms.values().includes(e) || 'bad read permission';
+      },
+    },
+    {
+      type: "adviceinput",
+      name: "write",
+      limit: 3,
+      message: `VehiclePropertyWritePermission(${Perms.TEMPLATE}, option)`,
+      choices: perms.choices,
+      initial: Format.nonNull(perms.defaults[0], Format.OPTION_INPUT),
+      validate: (e) => {
+        return e.trim().length == 0 || Perms.values().includes(e) || 'bad write permission';
+      },
     },
     {
       type: "select",
@@ -155,11 +161,9 @@ const propertyAccess = async (property) => {
     },
   ];
   const answers = await enquirer.prompt(questions);
-  console.log(answers);
+  // console.log(answers);
   property.mode = answers.mode;
   property.perms = Perms.group(answers.write, answers.read);
-  //update permissions suggestions
-  [answers.write, answers.read].map(e => e.trim()).forEach(e => Perms.append(e));
   //property.perms decide property.access
   const access = Types.WRVehiclePropertyAccess.map((e, index) => {
     return property.perms[index].length > 0 ? e : Types.VehiclePropertyAccess.NONE;
@@ -199,7 +203,7 @@ const areaId = async (property, area) => {
         message: "VehicleAreaGlobalIndex(0x0001-0xFFFF)",
         initial: area.id || Format.textHexInt(Types.VehicleAreaGlobal.INIT, 4),
         validate: (e) => {
-          return Format.HEX_INT16_REGEX.test(e) || "bad global area";
+          return Format.HEX_INT32_REGEX.test(e) || "bad global area";
         },
       },
     ];
@@ -238,14 +242,14 @@ const areaConfig = async (area) => {
       type: "input",
       name: "max",
       message: "area hal value max(option)",
-      initial: Format.nonNull(area.max, ' '),
+      initial: Format.nonNull(area.max, Format.OPTION_INPUT),
       validate,
     },
     {
       type: "input",
       name: "min",
       message: "area hal value min(option)",
-      initial: Format.nonNull(area.min, ' '),
+      initial: Format.nonNull(area.min, Format.OPTION_INPUT),
       validate,
     },
   ];
@@ -259,17 +263,16 @@ const areaConfig = async (area) => {
 
 const actionConfig = async (action, access) => {
   assert.ok(action != undefined, "config bad action");
-  Domain.append(action.domain);
   const questions = [
     {
       type: "adviceinput",
       name: "domain",
       limit: 3,
       message: "action domain",
-      choices: createValueChoices(Domain.values(), Domain.TEMPLATE),
-      initial: action.domain || Domain.TEMPLATE,
+      choices: createValueChoices(Domain.names()),
+      initial: Format.nonNull(action.domain, Domain.TEMPLATE),
       validate: (e) => {
-        return e.length == 0 || Format.CAN_DOMAIN_REGEX.test(e) || "bad domain format";
+        return Domain.names().includes(e) || "bad domain format";
       },
     },
     {
@@ -303,7 +306,7 @@ const actionConfig = async (action, access) => {
       type: "input",
       name: "mapping",
       message: `action signal mapping(option, ${Format.AREA_VALUE_MAPPING_FORMAT_HINT})`,
-      initial: Format.nonNull(action.mapping, ' '),
+      initial: Format.nonNull(action.mapping, Format.OPTION_INPUT),
       validate: (e) => {
         return (
           e.trim().length == 0 ||
@@ -319,7 +322,7 @@ const actionConfig = async (action, access) => {
       type: "input",
       name: "invalid",
       message: "action signal invalid value(option: 0x00000000-0xFFFFFFFF)",
-      initial: Format.nonNull(action.invalid, ' '),
+      initial: Format.nonNull(action.invalid, Format.OPTION_INPUT),
       validate: (e) => {
         return e.trim().length == 0 || Format.HEX_INT64_REGEX.test(e) || "bad action invalid value";
       },
@@ -331,9 +334,11 @@ const actionConfig = async (action, access) => {
   action.name = Format.trim(answers.name);
   action.pos = answers.pos;
   action.size = answers.size;
+  if (access == Types.VehiclePropertyAccess.WRITE) {
+    const invalid = answers.invalid.trim();
+    if (invalid.length > 0) action.invalid = answers.invalid;
+  }
   action.mapping = Format.trim(answers.mapping);
-  // //update domains suggestions
-  Domain.append(action.domain);
 };
 
 const actionMath = async (action) => {
@@ -345,28 +350,28 @@ const actionMath = async (action) => {
       type: "input",
       name: "factor",
       message: "action signal factor(option)",
-      initial: Format.nonNull(action.factor, ' '),
+      initial: Format.nonNull(action.factor, Format.OPTION_INPUT),
       validate,
     },
     {
       type: "input",
       name: "max",
       message: "action signal max(option)",
-      initial: Format.nonNull(action.max, ' '),
+      initial: Format.nonNull(action.max, Format.OPTION_INPUT),
       validate,
     },
     {
       type: "input",
       name: "min",
       message: "action signal min(option)",
-      initial: Format.nonNull(action.min, ' '),
+      initial: Format.nonNull(action.min, Format.OPTION_INPUT),
       validate,
     },
     {
       type: "input",
       name: "offset",
       message: "action signal offset(option)",
-      initial: Format.nonNull(action.offset, ' '),
+      initial: Format.nonNull(action.offset, Format.OPTION_INPUT),
       validate,
     },
   ];
@@ -380,6 +385,7 @@ const actionMath = async (action) => {
 };
 
 const polling = async () => {
+  if (Command.broken()) return false;
   const questions = [
     {
       type: "input",
@@ -397,7 +403,7 @@ const polling = async () => {
   } catch (err) {
     console.error("command polling err:", err);
   }
-  return Command.broken();
+  return !Command.broken();
 };
 
 const input = async (hints, recommand = '') => {

@@ -9,14 +9,17 @@ import Domain from "./domain.js";
 import Xml from "./xml.js";
 
 const UTF8 = "utf8";
-const DEFAULT_CONFIG_FILE = './config/cache.json';
+const DEFAULT_CONFIG_CACHE = './config/cache.json';
+const DEFAULT_CONFIG_DOMAIN = './config/domain.json';
+const DEFAULT_CONFIG_PERMS = './config/perms.json';
+
+const ACTION_CLEAR = "clear";
 
 const gContext = {
   values: [],
   property: undefined,
   area: undefined,
   quit: false,
-  file: undefined,
   suggest: 'load',
 };
 
@@ -27,15 +30,38 @@ const help = () => {
   console.log(chalk.blackBright(value) + "\n");
 };
 
+const setup = async () => {
+  console.log('Command setup');
+  try {
+    console.log(`load ${DEFAULT_CONFIG_DOMAIN}`);
+    const dText = fs.readFileSync(DEFAULT_CONFIG_DOMAIN, UTF8);
+    Domain.setup(Array.from(JSON.parse(dText)));
+    //
+    console.log(`load ${DEFAULT_CONFIG_PERMS}`);
+    const pText = fs.readFileSync(DEFAULT_CONFIG_PERMS, UTF8);
+    Perms.setup(Array.from(JSON.parse(pText)));
+
+    await select(ACTION_CLEAR);
+    console.log(`setup success: ${Domain.values().length} domain, ${Perms.values().length} perms`);
+    gContext.suggest = 'load';
+  } catch (err) {
+    console.error("setup error:", err);
+    await quit();
+  }
+}
+
 const load = async () => {
   try {
-    gContext.file = await Prompts.input('load config file path', gContext.file || DEFAULT_CONFIG_FILE);
-    const text = fs.readFileSync(gContext.file, UTF8);
-    const context = JSON.parse(text);
-    gContext.values = context.values;
-    Array.from(context.domains).forEach(e => Domain.append(e));
-    Array.from(context.permissions).forEach(e => Perms.append(e));
-    console.log(`load ${gContext.file} ${gContext.values.length} properties`);
+    console.log(`load ${DEFAULT_CONFIG_CACHE}`);
+    if (fs.existsSync(DEFAULT_CONFIG_CACHE)) {
+      const text = fs.readFileSync(DEFAULT_CONFIG_CACHE, UTF8);
+      gContext.values = JSON.parse(text);
+    } else {
+      console.log(chalk.red(`${DEFAULT_CONFIG_CACHE} not exist`));
+      gContext.values = [];
+    }
+    await select(ACTION_CLEAR);
+    console.log(`load success: ${gContext.values.length} properties`);
     gContext.suggest = 'list';
   } catch (err) {
     console.error("load file error:", err);
@@ -44,18 +70,11 @@ const load = async () => {
 
 const save = async () => {
   try {
-    gContext.file = await Prompts.input('save config file path', gContext.file);
-    const dir = path.dirname(gContext.file);
+    const dir = path.dirname(DEFAULT_CONFIG_CACHE);
     !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
-    const context = {
-      values: gContext.values,
-      file: gContext.file,
-      domains: Domain.values(),
-      permissions: Perms.values(),
-    };
-    const text = JSON.stringify(context);
-    fs.writeFileSync(gContext.file, text, UTF8);
-    console.log(`save ${gContext.file} success.`);
+    const text = JSON.stringify(gContext.values);
+    fs.writeFileSync(DEFAULT_CONFIG_CACHE, text, UTF8);
+    console.log(`save ${DEFAULT_CONFIG_CACHE} success.`);
     gContext.suggest = 'size';
   } catch (err) {
     console.error("save to file error:", err);
@@ -99,7 +118,7 @@ const size = async () => {
 };
 
 const select = async (intent) => {
-  if ('clear' == intent) {
+  if (ACTION_CLEAR == intent) {
     gContext.property = undefined;
     gContext.area = undefined;
     console.log(chalk.cyan('select clear.'));
@@ -161,7 +180,7 @@ const makeArea = async (property, area) => {
   };
   //area actions(SET or GET)
   for (const access of [Types.VehiclePropertyAccess.READ, Types.VehiclePropertyAccess.WRITE]) {
-    if ((Format.parseHexInt(property.access) & access) != access) return null;
+    if ((Format.parseHexInt(property.access) & access) != access) continue;
     const name = Types.descVehiclePropertyAccess(access);
     console.log(chalk.cyan(`${title} ${name} action for area`));
     const action = area[access] || {};
@@ -184,12 +203,13 @@ const create = async () => {
     const property = {};
     if (!await makeProperty(property)) return;
     gContext.values.push(property);
+    gContext.suggest = 'select';
   } else {
     const area = {};
     if (!await makeArea(gContext.property, area)) return;
     gContext.property.areas.push(area);
+    gContext.suggest = 'save';
   }
-  gContext.suggest = 'save';
 };
 
 const dump = async (property = undefined, area = undefined) => {
@@ -259,7 +279,7 @@ const remove = async () => {
 
 const xml = async () => {
   //save dir
-  const dir = await Prompts.input('save xml files dir', path.dirname(DEFAULT_CONFIG_FILE));
+  const dir = await Prompts.input('save xml files dir', "./outputs");
   if (!dir || dir.length <= 0) return console.log(chalk.red('bad xml config save dir.'));
   !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
   //version
@@ -306,7 +326,7 @@ const Actions = {
   size: { action: size, text: "size, size of property or areas;" },
   update: { action: update, text: "update, update select property or area;" },
   remove: { action: remove, text: "remove, remove select property or area;" },
-  load: { action: load, text: "load, load data from file;" },
+  load: { action: load, text: "load, load cache, domain, perms from config dir;" },
   save: { action: save, text: "save, save data into file;" },
   xml: { action: xml, text: "xml, export as hal and can props xml;" },
   quit: { action: quit, text: "quit, exit;" },
@@ -314,6 +334,7 @@ const Actions = {
 
 export default {
   Actions,
+  setup,
   broken,
   suggest,
   makeProperty,

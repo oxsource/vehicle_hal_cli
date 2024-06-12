@@ -2,9 +2,9 @@ import chalk from "chalk";
 import Prompts from "./prompt.js";
 
 const main = async () => {
-    Prompts.setup();
+    await Prompts.setup();
     while (true) {
-        if (!(await Prompts.polling())) continue;
+        if (await Prompts.polling()) continue;
         console.log(chalk.cyan("Bye"));
         break;
     };
