@@ -257,7 +257,7 @@ const areaConfig = async (area) => {
   });
 };
 
-const actionConfig = async (action) => {
+const actionConfig = async (action, access) => {
   assert.ok(action != undefined, "config bad action");
   Domain.append(action.domain);
   const questions = [
@@ -313,6 +313,18 @@ const actionConfig = async (action) => {
       },
     },
   ];
+  if (access == Types.VehiclePropertyAccess.WRITE) {
+    //config invalid value for CAN event type(diff reset)
+    questions.push({
+      type: "input",
+      name: "invalid",
+      message: "action signal invalid value(option: 0x00000000-0xFFFFFFFF)",
+      initial: Format.nonNull(action.invalid, ' '),
+      validate: (e) => {
+        return e.trim().length == 0 || Format.HEX_INT64_REGEX.test(e) || "bad action invalid value";
+      },
+    });
+  }
   const answers = await enquirer.prompt(questions);
   assert(answers.pos + answers.size <= Format.CAN_SIGNAL_MAX_BIT, "bad action data size");
   action.domain = Format.trim(answers.domain);

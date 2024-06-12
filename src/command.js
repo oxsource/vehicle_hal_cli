@@ -166,7 +166,7 @@ const makeArea = async (property, area) => {
     console.log(chalk.cyan(`${title} ${name} action for area`));
     const action = area[access] || {};
     action.label = name;
-    await Prompts.actionConfig(action);
+    await Prompts.actionConfig(action, access);
     if (!action.mapping || action.mapping.length <= 0) {
       await Prompts.actionMath(action);
     } else {

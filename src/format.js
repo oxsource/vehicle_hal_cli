@@ -11,7 +11,8 @@ const parseHexInt = (s) => {
 
 const trim = s => (s || '').trim();
 
-const HEX_INT16_REGEX = /^0x[0-9a-fA-F]{0,4}$/i;
+const HEX_INT32_REGEX = /^0x[0-9a-fA-F]{0,4}$/i;
+const HEX_INT64_REGEX = /^0x[0-9a-fA-F]{0,8}$/i;
 const PROPERTY_NAME_REGEX = /^[a-zA-Z][a-zA-Z0-9_]{5,23}$/;
 const AREA_VALUE_MAPPING_REGEX =
   /^(?:[0-9a-fA-F]+-[0-9a-fA-F]+,)*[0-9a-fA-F]+-[0-9a-fA-F]+$/;
@@ -33,7 +34,8 @@ export default {
   parseHexInt,
   trim,
   nonNull,
-  HEX_INT16_REGEX,
+  HEX_INT32_REGEX,
+  HEX_INT64_REGEX,
   PROPERTY_NAME_REGEX,
   AREA_VALUE_MAPPING_REGEX,
   CAN_DOMAIN_REGEX,
