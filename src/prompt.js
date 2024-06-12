@@ -84,6 +84,7 @@ const propertyId = async (property, recommand = undefined) => {
   defaults.group = pid > 0 ? pid & Types.VehiclePropertyGroup.MASK : Types.VehiclePropertyGroup.VENDOR;
   defaults.type = pid > 0 ? pid & Types.VehiclePropertyType.MASK : Types.VehiclePropertyType.INT32;
   defaults.index = pid > 0 ? pid & Types.VehiclePropertyIndex.MASK : Types.VehiclePropertyIndex.INIT;
+  defaults.area = pid > 0 ? pid & Types.VehicleArea.MASK : Types.VehicleArea.GLOBAL;
   const questions = [
     {
       type: "select",
@@ -104,7 +105,7 @@ const propertyId = async (property, recommand = undefined) => {
       name: "area",
       message: "VehicleArea",
       choices: createChoices(Types.VehicleArea, 8),
-      initial: Format.textHexInt(property.area || Types.VehicleArea.GLOBAL, 8),
+      initial: Format.textHexInt(defaults.area, 8),
     },
     {
       type: "input",
