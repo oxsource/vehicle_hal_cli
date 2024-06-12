@@ -83,10 +83,10 @@ const createCanProps = context => {
         })
     });
     domains.forEach(value => {
+        const source = Domain.values().find(e => e.name == value) || {};
         const nDomain = domain.ele('domain')
             .att('name', value.replaceAll('0x', ''));
-        const source = Domain.values().find(e => e.name == value);
-        const initial = ((source || {}).initial || '').trim();
+        const initial = (source.initial || '').trim();
         initial.length > 0 && nDomain.att('initial', initial);
         nDomain.up();
     });
@@ -101,7 +101,7 @@ const createCanProps = context => {
                 const action = area[access];
                 if (!action) return;
                 const nAction = nProp.ele(Types.descVehiclePropertyAccess(access));
-                nAction.att('domain', action.domain)
+                nAction.att('domain', action.domain.replaceAll('0x', ''))
                     .att('name', action.name)
                     .att('pos', action.pos)
                     .att('size', action.size);
