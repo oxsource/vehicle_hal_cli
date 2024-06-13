@@ -92,7 +92,7 @@ const list = async (offset = undefined, size = undefined) => {
     values.push(...gContext.values);
     message.push(`list all property`);
   }
-  offset = offset || 0, size = size || values.length;
+  offset = parseInt(offset) || 0, size = parseInt(size) || values.length;
   if (offset < 0 || size < 0) {
     console.log(chalk.red(`list bad offset ${offset} size ${size}`));
     return;
