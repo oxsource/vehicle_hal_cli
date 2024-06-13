@@ -1,4 +1,5 @@
 import assert from "assert";
+import chalk from "chalk";
 import Enquirer from "enquirer";
 import Types from "./types.js";
 import Perms from "./perms.js";
@@ -113,7 +114,6 @@ const propertyId = async (property, recommand = undefined) => {
       message: "VehiclePropertyIndex(0x0001-0xFFFF)",
       initial: Format.textHexInt(defaults.index, 4),
       validate: (e) => {
-        console.log(`validate index: ${e}`);
         return Format.HEX_INT32_REGEX.test(e) || "bad property index";
       },
     },
@@ -135,11 +135,11 @@ const propertyAccess = async (property) => {
       type: "adviceinput",
       name: "read",
       limit: 3,
-      message: `VehiclePropertyReadPermission(${Perms.TEMPLATE})`,
+      message: `VehiclePropertyReadPermission(${Perms.TEMPLATE}, option)`,
       choices: perms.choices,
-      initial: Format.nonNull(perms.defaults[0], ''),
+      initial: Format.nonNull(perms.defaults[0], Format.OPTION_INPUT),
       validate: (e) => {
-        return Perms.values().includes(e) || 'bad read permission';
+        return e.trim().length == 0 || Perms.values().includes(e) || 'bad read permission';
       },
     },
     {
@@ -162,7 +162,10 @@ const propertyAccess = async (property) => {
     },
   ];
   const answers = await enquirer.prompt(questions);
-  // console.log(answers);
+  if (answers.write.trim().length == 0 && answers.read.trim().length == 0) {
+    console.log(chalk.red("read and write permission can't be both empty.\n"));
+    return await propertyAccess(property);
+  }
   property.mode = answers.mode;
   property.perms = Perms.group(answers.write, answers.read);
   //property.perms decide property.access
