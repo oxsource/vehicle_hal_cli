@@ -40,6 +40,7 @@ const createHalProps = context => {
         }
     };
     const doc = xmlbuilder2.create(config.meta);
+    doc.com(`${context.author} ${context.stamp}`);
     const root = doc.ele('configs');
     root.att('version', context.version);
     context.values.forEach(prop => {
@@ -65,6 +66,7 @@ const createHalProps = context => {
 
 const createCanProps = context => {
     const doc = xmlbuilder2.create(config.meta);
+    doc.com(`${context.author} ${context.stamp}`);
     const root = doc.ele('CONFIG');
     //build CAN_PARAMS
     root.ele('CAN_PARAMS')

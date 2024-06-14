@@ -289,11 +289,23 @@ const xml = async () => {
   const platform = await Prompts.input('xml config platform name', 'qcom');
   if (!platform || platform.length <= 0) return console.log(chalk.red('bad xml config platform.'));
   //context
+  const stamp = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  };
   const context = {
     version,
     platform,
     values: gContext.values,
-  }
+    author: "IT'S AUTO GENERAGTE BY VEHICLE_HAL_CLI",
+    stamp: stamp(), 
+  };
   const hal = Xml.createHalProps(context);
   const can = Xml.createCanProps(context);
   try {
