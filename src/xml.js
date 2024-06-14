@@ -70,7 +70,10 @@ const createCanProps = context => {
     root.ele('CAN_PARAMS')
         .att('platform', context.platform)
         .att('version', context.version)
-        .ele('SET').att('header', 'AA0C30').att('retry', 5).up()
+        .ele('SET')
+        .att('header', 'AA0C30')
+        .att('retry', 5)
+        .att('debounce', 10).up()
         .up();
     //build CAN_DOMAN
     const domain = root.ele('CAN_DOMAIN');
