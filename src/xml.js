@@ -51,7 +51,7 @@ const createHalProps = context => {
             .att('change', descMode(prop.mode))
             .att('perms', Perms.line(prop.perms));
         //property areas
-        prop.areas.forEach(area => {
+        (prop.areas || []).forEach(area => {
             //eg. <area id="0x07" limits="0,3"/>
             const limits = ['min', 'max'].map(key => area[key]).filter(e => e != undefined);
             const nArea = nConfig.ele('area');
@@ -89,10 +89,11 @@ const createCanProps = context => {
     });
     domains.forEach(value => {
         const source = Domain.values().find(e => e.name == value) || {};
-        const nDomain = domain.ele('domain')
+        const nDomain = domain.ele('item')
             .att('name', value.replaceAll('0x', ''));
         const initial = (source.initial || '').trim();
         initial.length > 0 && nDomain.att('initial', initial);
+        source.little === true && nDomain.att('little', true);
         nDomain.up();
     });
     domain.up();
