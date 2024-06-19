@@ -153,6 +153,7 @@ const makeProperty = async (property) => {
     return false;
   }
   await Prompts.propertyAccess(property);
+  property.willActions = await Prompts.positive("will actions for this ptoperty?");
   console.log(chalk.cyan(`${title} property success.`));
   dump(property, undefined);
   return true;
@@ -172,26 +173,28 @@ const makeArea = async (property, area) => {
     console.log(chalk.red(msg));
     return false;
   }
-  const cleanAreaMath = (e) => {
-    delete e.factor;
-    delete e.max;
-    delete e.min;
-    delete e.offset;
-  };
-  //area actions(SET or GET)
-  for (const access of [Types.VehiclePropertyAccess.READ, Types.VehiclePropertyAccess.WRITE]) {
-    if ((Format.parseHexInt(property.access) & access) != access) continue;
-    const name = Types.descVehiclePropertyAccess(access);
-    console.log(chalk.cyan(`${title} ${name} action for area`));
-    const action = area[access] || {};
-    action.label = name;
-    await Prompts.actionConfig(action, access);
-    if (!action.mapping || action.mapping.length <= 0) {
-      await Prompts.actionMath(action);
-    } else {
-      cleanAreaMath(action);
+  if (!(property.willActions === false)) {
+    const cleanAreaMath = (e) => {
+      delete e.factor;
+      delete e.max;
+      delete e.min;
+      delete e.offset;
+    };
+    //area actions(SET or GET)
+    for (const access of [Types.VehiclePropertyAccess.READ, Types.VehiclePropertyAccess.WRITE]) {
+      if ((Format.parseHexInt(property.access) & access) != access) continue;
+      const name = Types.descVehiclePropertyAccess(access);
+      console.log(chalk.cyan(`${title} ${name} action for area`));
+      const action = area[access] || {};
+      action.label = name;
+      await Prompts.actionConfig(action, access);
+      if (!action.mapping || action.mapping.length <= 0) {
+        await Prompts.actionMath(action);
+      } else {
+        cleanAreaMath(action);
+      }
+      area[access] = action;
     }
-    area[access] = action;
   }
   console.log(chalk.cyan(`${title} area finish.`));
   dump(undefined, area);
@@ -220,7 +223,8 @@ const dump = async (property = undefined, area = undefined) => {
   if (packet.area) {
     console.log(chalk.green("dump area"));
     const values = Types.WRVehiclePropertyAccess.map(access => packet.area[access]).filter(e => e != undefined);
-    console.table(values);
+    const dumpy = values.length == 0 ? packet.area : values;
+    console.table(dumpy);
   } else if (packet.property) {
     console.log(chalk.green("dump property"));
     const value = {
@@ -304,7 +308,7 @@ const xml = async () => {
     platform,
     values: gContext.values,
     author: "IT'S AUTO GENERAGTE BY VEHICLE_HAL_CLI",
-    stamp: stamp(), 
+    stamp: stamp(),
   };
   const hal = Xml.createHalProps(context);
   const can = Xml.createCanProps(context);

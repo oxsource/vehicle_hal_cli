@@ -422,6 +422,24 @@ const input = async (hints, recommand = '') => {
   return (await enquirer.prompt(questions)).value.trim();
 };
 
+const positive = async (hint) => {
+  const YES = "YES";
+  const choices = [YES, "NO"].map(key => {
+    return {name: key, message: key, value: key};
+  });
+  const questions = [
+    {
+      type: "select",
+      name: "value",
+      message: hint || 'choose Y/N',
+      choices,
+      initial: YES,
+    },
+  ];
+  const answers = await enquirer.prompt(questions);
+  return answers.value == YES;
+};
+
 export default {
   setup,
   propertyId,
@@ -433,4 +451,5 @@ export default {
   actionMath,
   polling,
   input,
+  positive,
 };

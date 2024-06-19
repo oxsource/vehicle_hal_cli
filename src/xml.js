@@ -73,7 +73,6 @@ const createCanProps = context => {
         .att('platform', context.platform)
         .att('version', context.version)
         .ele('SET')
-        .att('header', 'AA0C30')
         .att('retry', 5)
         .att('debounce', 10).up()
         .up();
@@ -100,6 +99,7 @@ const createCanProps = context => {
     //build CAN_PROPS
     const nProps = root.ele('CAN_PROPS');
     context.values.forEach(prop => {
+        if (prop.willActions === false) return;
         prop.areas.forEach(area => {
             const nProp = nProps.ele('PROP').att('id', prop.id);
             nProp.att('area', area.id).att('name', area.name);
