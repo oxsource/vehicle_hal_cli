@@ -153,7 +153,6 @@ const makeProperty = async (property) => {
     return false;
   }
   await Prompts.propertyAccess(property);
-  property.willActions = await Prompts.positive("will actions for this ptoperty?");
   console.log(chalk.cyan(`${title} property success.`));
   dump(property, undefined);
   return true;
@@ -173,7 +172,7 @@ const makeArea = async (property, area) => {
     console.log(chalk.red(msg));
     return false;
   }
-  if (!(property.willActions === false)) {
+  if (Format.isCANProperty(property.id)) {
     const cleanAreaMath = (e) => {
       delete e.factor;
       delete e.max;

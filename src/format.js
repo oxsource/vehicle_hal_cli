@@ -11,6 +11,11 @@ const parseHexInt = (s) => {
 
 const trim = s => (s || '').trim();
 
+const isCANProperty = (id) => {
+  const iid = typeof (id) == 'string' ? parseHexInt(id) : id;
+  return (iid & 0xFFFF) < 1000;
+};
+
 const HEX_INT32_REGEX = /^0x[0-9a-fA-F]{1,4}$/i;
 const HEX_INT64_REGEX = /^0x[0-9a-fA-F]{1,8}$/i;
 const PROPERTY_NAME_REGEX = /^[a-zA-Z][a-zA-Z0-9_]{5,59}$/;
@@ -34,6 +39,7 @@ export default {
   parseHexInt,
   trim,
   nonNull,
+  isCANProperty,
   HEX_INT32_REGEX,
   HEX_INT64_REGEX,
   PROPERTY_NAME_REGEX,

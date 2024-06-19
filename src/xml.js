@@ -43,6 +43,12 @@ const createHalProps = context => {
     doc.com(`${context.author} ${context.stamp}`);
     const root = doc.ele('configs');
     root.att('version', context.version);
+    //sort via areas and global index
+    context.values.forEach(e => {
+        const id = Format.parseHexInt(e.id);
+        e.index = (Format.isCANProperty(id) ? 10000 : 0) + (id & 0xFFFF);
+    });
+    context.values.sort((a, b) => a.index - b.index);
     context.values.forEach(prop => {
         // <config prop="0x21401001" access="WR" change="CHANGE" perms="android.car.permission.CAR_AUDIO,-"/>
         const nConfig = root.ele('config')
@@ -80,7 +86,7 @@ const createCanProps = context => {
     const domain = root.ele('CAN_DOMAIN');
     const domains = new Set();
     context.values.forEach(prop => {
-        prop.areas.forEach(area => {
+        (prop.areas || []).forEach(area => {
             Types.WRVehiclePropertyAccess.map(key => area[key]).forEach(action => {
                 action && domains.add(action.domain);
             });
@@ -99,8 +105,8 @@ const createCanProps = context => {
     //build CAN_PROPS
     const nProps = root.ele('CAN_PROPS');
     context.values.forEach(prop => {
-        if (prop.willActions === false) return;
-        prop.areas.forEach(area => {
+        if (!Format.isCANProperty(prop.id)) return;
+        (prop.areas || []).forEach(area => {
             const nProp = nProps.ele('PROP').att('id', prop.id);
             nProp.att('area', area.id).att('name', area.name);
             Types.WRVehiclePropertyAccess.forEach(access => {
