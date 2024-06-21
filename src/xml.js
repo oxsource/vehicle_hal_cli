@@ -52,7 +52,7 @@ const createHalProps = context => {
     context.values.forEach(prop => {
         // <config prop="0x21401001" access="WR" change="CHANGE" perms="android.car.permission.CAR_AUDIO,-"/>
         const nConfig = root.ele('config')
-        nConfig.att('prop', prop.id)
+        nConfig.att('prop', Format.hexUpperCase(prop.id))
             .att('access', descAccess(prop.access))
             .att('change', descMode(prop.mode))
             .att('perms', Perms.line(prop.perms));
@@ -61,7 +61,7 @@ const createHalProps = context => {
             //eg. <area id="0x07" limits="0,3"/>
             const limits = ['min', 'max'].map(key => area[key]).filter(e => e != undefined);
             const nArea = nConfig.ele('area');
-            nArea.att('id', area.id);
+            nArea.att('id', Format.hexUpperCase(area.id));
             if (limits.length == 2) nArea.att('limits', limits.join(','));
             nArea.up();
         });
@@ -107,8 +107,8 @@ const createCanProps = context => {
     context.values.forEach(prop => {
         if (!Format.isCANProperty(prop.id)) return;
         (prop.areas || []).forEach(area => {
-            const nProp = nProps.ele('PROP').att('id', prop.id);
-            nProp.att('area', area.id).att('name', area.name);
+            const nProp = nProps.ele('PROP').att('id', Format.hexUpperCase(prop.id));
+            nProp.att('area', Format.hexUpperCase(area.id)).att('name', area.name);
             Types.WRVehiclePropertyAccess.forEach(access => {
                 const action = area[access];
                 if (!action) return;

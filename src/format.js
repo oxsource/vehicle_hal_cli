@@ -5,6 +5,12 @@ const textHexInt = (id, length = 1, defaults = "") => {
   return `0x${id.toString(16).padStart(length, "0")}`;
 };
 
+const hexUpperCase = text => {
+  if (typeof(text) != 'string') return text;
+  const value = text.startsWith('0x') ? text.substring(2) : text;
+  return `0x${value.toUpperCase()}`;
+};
+
 const parseHexInt = (s) => {
   return parseInt(s, 16);
 };
@@ -40,6 +46,7 @@ export default {
   trim,
   nonNull,
   isCANProperty,
+  hexUpperCase,
   HEX_INT32_REGEX,
   HEX_INT64_REGEX,
   PROPERTY_NAME_REGEX,
