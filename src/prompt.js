@@ -333,8 +333,12 @@ const actionConfig = async (action, access) => {
     });
   }
   const answers = await enquirer.prompt(questions);
-  assert(answers.pos + answers.size <= Format.CAN_SIGNAL_MAX_BIT, "bad action data size");
   action.domain = Format.trim(answers.domain);
+
+  const domain = Domain.values().find(e => e.name == answers.domain);
+  const u64Pos = (domain.little === true) ? answers.pos : (7 - (answers.pos / 8)) * 8 + (answers.pos % 8);
+  assert(u64Pos + answers.size <= Format.CAN_SIGNAL_MAX_BIT, "bad action data size");
+
   action.name = Format.trim(answers.name);
   action.pos = answers.pos;
   action.size = answers.size;
