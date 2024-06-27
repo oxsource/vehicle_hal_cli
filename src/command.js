@@ -280,6 +280,40 @@ const remove = async () => {
   gContext.suggest = 'size';
 };
 
+const shrink = async () => {
+  const values = gContext.values || [];
+  const domains = Domain.names();
+  const shrinks = [];
+  gContext.values = values.filter((e) => {
+    if (!Format.isCANProperty(e.id) || e.areas == undefined) return true;
+    return Array.from(e.areas).filter(area => {
+      return Types.WRVehiclePropertyAccess.map(access => {
+        const action = area[access];
+        if (!action || action.domain == undefined) return true;
+        if (domains.includes(action.domain)) return true;
+        delete area[access];
+        shrinks.push(`${action.name}@${action.domain}`);
+        return false;
+      }).reduce((acc, cur) => acc || cur);
+    }).length > 0;
+  });
+  const total = values.length, count = gContext.values.length;
+  console.log(`shrink property ${count}/${total}, actions: ${shrinks.length}`);
+  if (shrinks.length <= 0) return;
+  //save shrinks
+  try {
+    const dir = await Prompts.input('save shrinks files dir', "./outputs");
+    if (!dir || dir.length <= 0) return console.log(chalk.red('bad shrinks save dir.'));
+    !fs.existsSync(dir) && fs.mkdirSync(dir, { recursive: true });
+    const file = `${dir}/shrinks.json`
+    const text = JSON.stringify(shrinks);
+    fs.writeFileSync(file, text, UTF8);
+    console.log(`save ${file} success.`);
+  } catch (err) {
+    console.error("save to shrink file error:", err);
+  }
+};
+
 const xml = async () => {
   //save dir
   const dir = await Prompts.input('save xml files dir', "./outputs");
@@ -343,6 +377,7 @@ const Actions = {
   remove: { action: remove, text: "remove, remove select property or area;" },
   load: { action: load, text: "load, load cache, domain, perms from config dir;" },
   save: { action: save, text: "save, save data into file;" },
+  shrink: { action: shrink, text: "shrink, shrink data if domain not exist;" },
   xml: { action: xml, text: "xml, export as hal and can props xml;" },
   quit: { action: quit, text: "quit, exit;" },
 };
