@@ -287,14 +287,15 @@ const shrink = async () => {
   gContext.values = values.filter((e) => {
     if (!Format.isCANProperty(e.id) || e.areas == undefined) return true;
     return Array.from(e.areas).filter(area => {
-      return Types.WRVehiclePropertyAccess.map(access => {
+      const flags = Types.WRVehiclePropertyAccess.map(access => {
         const action = area[access];
-        if (!action || action.domain == undefined) return true;
+        if (!action || action.domain == undefined) return undefined;
         if (domains.includes(action.domain)) return true;
         delete area[access];
         shrinks.push(`${action.name}@${action.domain}`);
         return false;
-      }).reduce((acc, cur) => acc || cur);
+      }).filter(e => e != undefined);
+      return flags.length <= 0 || flags.reduce((acc, cur) => acc || cur);
     }).length > 0;
   });
   const total = values.length, count = gContext.values.length;
