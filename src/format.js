@@ -1,4 +1,7 @@
+import Types from "./types.js"
+
 const KEY_MASK = "MASK";
+const CAN_PROP_INDEX_LIMIT = 0x1000
 
 const textHexInt = (id, length = 1, defaults = "") => {
   if (id == undefined || !Number.isInteger(id)) return defaults;
@@ -19,7 +22,7 @@ const trim = s => (s || '').trim();
 
 const isCANProperty = (id) => {
   const iid = typeof (id) == 'string' ? parseHexInt(id) : id;
-  return (iid & 0xFFFF) < 1000;
+  return (iid & Types.VehiclePropertyIndex.MASK) < CAN_PROP_INDEX_LIMIT;
 };
 
 const HEX_INT32_REGEX = /^0x[0-9a-fA-F]{1,4}$/i;
