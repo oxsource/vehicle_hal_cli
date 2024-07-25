@@ -46,7 +46,8 @@ const createHalProps = context => {
     //sort via areas and global index
     context.values.forEach(e => {
         const id = Format.parseHexInt(e.id);
-        e.index = (Format.isCANProperty(id) ? 10000 : 0) + (id & 0xFFFF);
+        const group = Types.VehiclePropertyGroup.MASK & id;
+        e.index = (group * 100000) +  (Format.isCANProperty(id) ? 10000 : 0) + (id & 0xFFFF);
     });
     context.values.sort((a, b) => a.index - b.index);
     context.values.forEach(prop => {
