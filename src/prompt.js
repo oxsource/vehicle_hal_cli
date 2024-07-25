@@ -160,6 +160,12 @@ const propertyAccess = async (property) => {
       choices: createChoices(Types.VehiclePropertyChangeMode, 2),
       initial: property.mode | Types.VehiclePropertyChangeMode.ON_CHANGE,
     },
+    {
+      type: "input",
+      name: "configArray",
+      message: "VehiclePropertyConfig(eg.0x01,0x02)",
+      initial: property.configArray || '',
+    },
   ];
   const answers = await enquirer.prompt(questions);
   if (answers.write.trim().length == 0 && answers.read.trim().length == 0) {
@@ -175,6 +181,8 @@ const propertyAccess = async (property) => {
     return (acc |= cur);
   });
   property.access = Format.textHexInt(access, 2);
+  //configArray
+  property.configArray = answers.configArray;
 };
 
 const areaName = async (area) => {

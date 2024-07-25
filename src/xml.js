@@ -56,6 +56,9 @@ const createHalProps = context => {
             .att('access', descAccess(prop.access))
             .att('change', descMode(prop.mode))
             .att('perms', Perms.line(prop.perms));
+        if (prop.configArray && prop.configArray.length > 0) {
+            nConfig.att('configArray', prop.configArray);
+        }
         //property areas
         (prop.areas || []).forEach(area => {
             //eg. <area id="0x07" limits="0,3"/>
