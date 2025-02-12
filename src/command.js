@@ -173,12 +173,6 @@ const makeArea = async (property, area) => {
     return false;
   }
   if (Format.isCANProperty(property.id)) {
-    const cleanAreaMath = (e) => {
-      delete e.factor;
-      delete e.max;
-      delete e.min;
-      delete e.offset;
-    };
     //area actions(SET or GET)
     for (const access of [Types.VehiclePropertyAccess.READ, Types.VehiclePropertyAccess.WRITE]) {
       if ((Format.parseHexInt(property.access) & access) != access) continue;
@@ -187,11 +181,7 @@ const makeArea = async (property, area) => {
       const action = area[access] || {};
       action.label = name;
       await Prompts.actionConfig(action, access);
-      if (!action.mapping || action.mapping.length <= 0) {
-        await Prompts.actionMath(action);
-      } else {
-        cleanAreaMath(action);
-      }
+      await Prompts.actionTransform(action);
       area[access] = action;
     }
   }

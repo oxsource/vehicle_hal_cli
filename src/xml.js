@@ -121,16 +121,16 @@ const createCanProps = context => {
                     .att('name', action.name)
                     .att('pos', action.pos)
                     .att('size', action.size);
-                //action options
-                if (action.mapping != undefined) {
+                action.invalid && nAction.att('invalid', action.invalid);
+                //action transform
+                if (action.eval) {
+                    nAction.ele('eval').dat(action.eval).up();
+                } else if (action.mapping) {
                     nAction.att('mapping', action.mapping);
                 } else {
                     ['factor', 'max', 'min', 'offset'].forEach(key => {
                         action[key] != undefined && nAction.att(key, action[key]);
                     });
-                }
-                if (action.invalid) {
-                    nAction.att('invalid', action.invalid);
                 }
                 nAction.up();
             });

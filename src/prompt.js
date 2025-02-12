@@ -314,19 +314,6 @@ const actionConfig = async (action, access) => {
         return (e > 0 && e < Format.CAN_SIGNAL_MAX_BIT) || "bad action size value";
       },
     },
-    {
-      type: "input",
-      name: "mapping",
-      message: `action signal mapping(option, ${Format.AREA_VALUE_MAPPING_FORMAT_HINT})`,
-      initial: Format.nonNull(action.mapping, Format.OPTION_INPUT),
-      validate: (e) => {
-        return (
-          e.trim().length == 0 ||
-          Format.AREA_VALUE_MAPPING_REGEX.test(e) ||
-          "bad action mapping value"
-        );
-      },
-    },
   ];
   if (access == Types.VehiclePropertyAccess.WRITE) {
     //config invalid value for CAN event type(diff reset)
@@ -354,10 +341,48 @@ const actionConfig = async (action, access) => {
     const invalid = answers.invalid.trim();
     if (invalid.length > 0) action.invalid = answers.invalid;
   }
-  action.mapping = Format.trim(answers.mapping);
 };
 
-const actionMath = async (action) => {
+const actionTransform = async (action) => {
+  const keys = ['eval', 'mapping','factor', 'max', 'min', 'offset'];
+  const clean = (match) => {
+    keys.forEach(key => match(key) && (delete action[key]));
+  };
+  //eval
+  action.eval = (await enquirer.prompt([{
+    type: "input",
+    name: "eval",
+    message: "action signal eval script(option)",
+    initial: Format.nonNull(action.eval, Format.OPTION_INPUT),
+    validate: (e) => {
+      return (e.trim().length == 0 || true);
+    },
+  }])).eval;
+  action.eval = Format.trim(action.eval);
+  if (action.eval.length > 0) {
+    clean((e) => e !== 'eval');
+    return;
+  }
+  //mapping
+  action.mapping = (await enquirer.prompt([{
+    type: "input",
+    name: "mapping",
+    message: `action signal mapping(option, ${Format.AREA_VALUE_MAPPING_FORMAT_HINT})`,
+    initial: Format.nonNull(action.mapping, Format.OPTION_INPUT),
+    validate: (e) => {
+      return (
+        e.trim().length == 0 ||
+        Format.AREA_VALUE_MAPPING_REGEX.test(e) ||
+        "bad action mapping value"
+      );
+    },
+  }])).mapping;
+  action.mapping = Format.trim(action.mapping);
+  if (action.mapping.length > 0) {
+    clean((e) => e !== 'mapping');
+    return;
+  }
+  //math
   const validate = (e) => {
     return e && e.trim().length == 0 || Format.FLOAT_NUMBER_REGEX.test(e) || 'bad number format.';
   };
@@ -391,8 +416,8 @@ const actionMath = async (action) => {
       validate,
     },
   ];
-  delete action.mapping;
   const answers = await enquirer.prompt(questions);
+  clean((e) => e == 'mapping' || e == 'eval');
   ['factor', 'max', 'min', 'offset'].forEach(key => {
     const text = (answers[key] || '').trim();
     if (text.length == 0) return;
@@ -460,7 +485,7 @@ export default {
   areaId,
   areaConfig,
   actionConfig,
-  actionMath,
+  actionTransform,
   polling,
   input,
   positive,
