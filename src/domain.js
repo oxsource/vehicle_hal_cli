@@ -1,4 +1,5 @@
 import Format from "./format.js";
+import Types from "./types.js";
 
 const sets = new Set();
 const _values = [];
@@ -22,7 +23,24 @@ const setup = values => {
 
 const values = () => _values;
 
-const names = () => _names;
+const names = (access) => {
+    if (access == undefined) return _names;
+    return _values.map(e => {
+        let value = undefined;
+        switch (access) {
+            case Types.VehiclePropertyAccess.READ:
+                value = e.initial ? value : e.name;
+                break;
+            case Types.VehiclePropertyAccess.WRITE:
+                value = e.initial ? e.name : value;
+                break;
+            default:
+                value = e.name;
+                break;
+        }
+        return value;
+    }).filter(e => e != undefined && e.length > 0);
+};
 
 const TEMPLATE = "0x0000";
 

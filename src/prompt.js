@@ -275,16 +275,17 @@ const areaConfig = async (area) => {
 
 const actionConfig = async (action, access) => {
   assert.ok(action != undefined, "config bad action");
+  const domains = Domain.names(access);
   const questions = [
     {
       type: "adviceinput",
       name: "domain",
       limit: 3,
       message: "action domain",
-      choices: createValueChoices(Domain.names()),
+      choices: createValueChoices(domains),
       initial: Format.nonNull(action.domain, Domain.TEMPLATE),
       validate: (e) => {
-        return Domain.names().includes(e) || "bad domain format";
+        return domains.includes(e) || "bad domain format";
       },
     },
     {
