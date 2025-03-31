@@ -103,6 +103,8 @@ const createCanProps = context => {
         const initial = (source.initial || '').trim();
         initial.length > 0 && nDomain.att('initial', initial);
         source.little === true && nDomain.att('little', true);
+        const comment = (source.comment || '').trim();
+        comment.length > 0 && nDomain.att('comment', comment);
         nDomain.up();
     });
     domain.up();
